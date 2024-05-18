@@ -24,16 +24,8 @@ func main() {
 	)
 	mux.Handle("/assets/logo", http.FileServer(http.Dir("./assets/logo.png")))
 	mux.HandleFunc("/healthz", healthzHandler)
-	mux.HandleFunc("/metrics", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		if _, err := w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits))); err != nil {
-			log.Fatalf("writing number of hits: %v", err)
-		}
-	})
-	mux.HandleFunc("/reset", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		cfg.fileserverHits = 0
-	})
+	mux.HandleFunc("/metrics", cfg.metricsHandler)
+	mux.HandleFunc("/reset", cfg.resetHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -48,7 +40,7 @@ func main() {
 func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write([]byte("OK")); err != nil {
+	if _, err := w.Write([]byte(http.StatusText(http.StatusOK))); err != nil {
 		log.Fatalf("writing ok: %v", err)
 	}
 }
@@ -58,4 +50,17 @@ func (cfg *apiConfig) middlewarMetricsInc(next http.Handler) http.Handler {
 		cfg.fileserverHits++
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
+	if _, err := w.Write([]byte(fmt.Sprintf("Hits: %d", cfg.fileserverHits))); err != nil {
+		log.Fatalf("writing number of hits: %v", err)
+	}
+}
+
+func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	cfg.fileserverHits = 0
 }
