@@ -23,7 +23,8 @@ func main() {
 	mux.HandleFunc("GET /api/healthz", healthzHandler)
 	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
 	mux.HandleFunc("/api/reset", cfg.resetHandler)
-	mux.HandleFunc("POST /api/validate_chirp", validateChirpHandler)
+	mux.HandleFunc("POST /api/chirps", postChirpsHandler)
+	mux.HandleFunc("GET /api/chirps", getChirpsHandler)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -43,15 +44,18 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
+func postChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	type chirp struct {
-		Chirp string `json:"body"`
+		Body string `json:"body"`
 	}
 
 	type returnVals struct {
+		Id          int    `json:"id,required"`
 		Error       string `json:"error"`
 		CleanedBody string `json:"cleaned_body"`
 	}
+
+	incId := 0
 
 	// decode response
 	decoder := json.NewDecoder(r.Body)
@@ -63,16 +67,24 @@ func validateChirpHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If chirp is greater than 140 characters
-	if len(param.Chirp) > 140 {
+	if len(param.Body) > 140 {
 		respondWithError(w, http.StatusBadRequest, "Chirp too long")
 		return
-	} else { // Chirp is correct size
-		msg := cleanMessage(param.Chirp)
-		respondWithJSON(w, http.StatusOK, returnVals{
-			CleanedBody: msg,
-		})
 	}
+
+	// Chirp is correct size
+	// need to add to db
+	msg := cleanMessage(param.Body)
+	incId++
+	respondWithJSON(w, http.StatusOK, returnVals{
+		Id:          incId,
+		CleanedBody: msg,
+	})
 }
+
+func getChirpsHandler(w http.ResponseWriter, r *http.Request) {}
+
+// ********** HELPERS ************
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	type errorResponse struct {
