@@ -5,24 +5,36 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"chirpyserver/api"
+	database "chirpyserver/dbStuff"
+	"chirpyserver/types"
 )
 
 func main() {
 	const port = "8080"
 	const filePathRoot = "."
-	cfg := apiConfig{
-		fileserverHits: 0,
+	const dbPath = "./database.json"
+	cfg := api.ApiConfig{
+		FileserverHits: 0,
+	}
+
+	// will need result of NewDb, but will need to implement it too
+	_, err := database.NewDb(dbPath)
+	if err != nil {
+		log.Fatalf("Couldn't create db connection to %s", dbPath)
+		return
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle(
 		"/app/*",
-		cfg.middlewarMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoot)))),
+		cfg.MiddlewarMetricsInc(http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoot)))),
 	)
 	mux.Handle("/assets/logo", http.FileServer(http.Dir("./assets/logo.png")))
 	mux.HandleFunc("GET /api/healthz", healthzHandler)
-	mux.HandleFunc("GET /admin/metrics", cfg.metricsHandler)
-	mux.HandleFunc("/api/reset", cfg.resetHandler)
+	mux.HandleFunc("GET /admin/metrics", cfg.MetricsHandler)
+	mux.HandleFunc("/api/reset", cfg.ResetHandler)
 	mux.HandleFunc("POST /api/chirps", postChirpsHandler)
 	mux.HandleFunc("GET /api/chirps", getChirpsHandler)
 
@@ -45,21 +57,11 @@ func healthzHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func postChirpsHandler(w http.ResponseWriter, r *http.Request) {
-	type chirp struct {
-		Body string `json:"body"`
-	}
-
-	type returnVals struct {
-		Id          int    `json:"id,required"`
-		Error       string `json:"error"`
-		CleanedBody string `json:"cleaned_body"`
-	}
-
 	incId := 0
 
 	// decode response
 	decoder := json.NewDecoder(r.Body)
-	param := chirp{}
+	param := types.Chirp{}
 	if err := decoder.Decode(&param); err != nil {
 		log.Printf("Error decoding parameters: %s", err)
 		respondWithError(w, http.StatusInternalServerError, "Couldn't decode parameters")
@@ -76,7 +78,7 @@ func postChirpsHandler(w http.ResponseWriter, r *http.Request) {
 	// need to add to db
 	msg := cleanMessage(param.Body)
 	incId++
-	respondWithJSON(w, http.StatusOK, returnVals{
+	respondWithJSON(w, http.StatusOK, types.ReturnVals{
 		Id:          incId,
 		CleanedBody: msg,
 	})
@@ -84,7 +86,9 @@ func postChirpsHandler(w http.ResponseWriter, r *http.Request) {
 
 func getChirpsHandler(w http.ResponseWriter, r *http.Request) {}
 
+// *******************************
 // ********** HELPERS ************
+// *******************************
 
 func respondWithError(w http.ResponseWriter, code int, msg string) {
 	type errorResponse struct {

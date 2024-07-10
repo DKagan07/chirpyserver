@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"fmt"
@@ -6,18 +6,18 @@ import (
 	"net/http"
 )
 
-type apiConfig struct {
-	fileserverHits int
+type ApiConfig struct {
+	FileserverHits int
 }
 
-func (cfg *apiConfig) middlewarMetricsInc(next http.Handler) http.Handler {
+func (cfg *ApiConfig) MiddlewarMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cfg.fileserverHits++
+		cfg.FileserverHits++
 		next.ServeHTTP(w, r)
 	})
 }
 
-func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) MetricsHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	w.Header().Add("Content-Type", "text/html;")
 	adminText := fmt.Sprintf(`
@@ -29,13 +29,13 @@ func (cfg *apiConfig) metricsHandler(w http.ResponseWriter, r *http.Request) {
 </body>
 
 </html>
-	`, cfg.fileserverHits)
+	`, cfg.FileserverHits)
 	if _, err := w.Write([]byte(adminText)); err != nil {
 		log.Fatalf("sending admin html: %v", err)
 	}
 }
 
-func (cfg *apiConfig) resetHandler(w http.ResponseWriter, r *http.Request) {
+func (cfg *ApiConfig) ResetHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	cfg.fileserverHits = 0
+	cfg.FileserverHits = 0
 }
