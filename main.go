@@ -26,9 +26,9 @@ func main() {
 			http.StripPrefix("/app", http.FileServer(http.Dir(filePathRoot))),
 		),
 	)
-	mux.HandleFunc("GET /healthz", handlerHealthz)
-	mux.HandleFunc("GET /metrics", cfg.HandlerServerHits)
-	mux.HandleFunc("POST /reset", cfg.HandlerResetServerHits)
+	mux.HandleFunc("GET /api/healthz", handlerHealthz)
+	mux.HandleFunc("POST /admin/reset", cfg.HandlerResetServerHits)
+	mux.HandleFunc("GET /admin/metrics", cfg.HandlerServerHits)
 
 	srv := &http.Server{
 		Addr:    ":" + port,
@@ -56,8 +56,14 @@ func (cfg *apiConfig) MiddlewareMetricsInc(next http.Handler) http.Handler {
 }
 
 func (cfg *apiConfig) HandlerServerHits(w http.ResponseWriter, r *http.Request) {
-	w.Header().Add("Content-Type", "text/plain; charset=utf-8")
-	o := fmt.Sprintf("Hits: %d", cfg.fileServerHits.Load())
+	w.Header().Add("Content-Type", "text/html")
+	o := fmt.Sprintf(`
+<html>
+  <body>
+    <h1>Welcome, Chirpy Admin</h1>
+    <p>Chirpy has been visited %d times!</p>
+  </body>
+</html>`, cfg.fileServerHits.Load())
 	if _, err := w.Write([]byte(o)); err != nil {
 		return
 	}
